@@ -95,3 +95,4 @@ async function mergePlayerStats(urls: string[]): Promise<PlayerStats[]> {
   })();
   
   export { forwardDataPromise, midfieldDataPromise, defenseGkDataPromise };
+  export { PlayerStats };
