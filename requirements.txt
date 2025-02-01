@@ -1,0 +1,6 @@
+express 
+typescript 
+ts-node 
+@types/node 
+@types/express 
+cors
