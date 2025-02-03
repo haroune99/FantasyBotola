@@ -22,13 +22,16 @@ async function run() {
             defenseGkDataPromise
         ]);
 
+        // Update position-specific collections
+        await updatePositionCollection(database, 'forwards', forwardData);
+        await updatePositionCollection(database, 'midfielders', midfieldData);
+        await updatePositionCollection(database, 'defenders_goalkeepers', defenseGkData);
+
+        // Rest of your existing gameweek processing code
         const allData = [...forwardData, ...midfieldData, ...defenseGkData];
-        
-        // Process gameweek data
         const gameweekCollection = database.collection<PlayerStats>(`gameweek${CURRENT_GAMEWEEK}`);
         const gameweekData = await processGameweekData(database, allData);
         
-        // Store in gameweek-specific collection
         await gameweekCollection.deleteMany({});
         await gameweekCollection.insertMany(gameweekData);
         
@@ -38,6 +41,28 @@ async function run() {
         console.error('Error:', error);
     } finally {
         await client.close();
+    }
+}
+
+// New function to handle position-specific updates
+async function updatePositionCollection(database: Db, collectionName: string, data: PlayerStats[]) {
+    const collection = database.collection<PlayerStats>(collectionName);
+    
+    try {
+        const bulkOps = data.map(player => ({
+            updateOne: {
+                filter: { 'player.id': player.player.id },
+                update: { $set: player },
+                upsert: true
+            }
+        }));
+
+        const result = await collection.bulkWrite(bulkOps);
+        console.log(`${collectionName} updated: ${result.upsertedCount} inserted, ${result.modifiedCount} updated`);
+        
+    } catch (error) {
+        console.error(`Error updating ${collectionName}:`, error);
+        throw error;
     }
 }
 
