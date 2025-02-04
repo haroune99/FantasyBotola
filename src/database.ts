@@ -2,6 +2,7 @@ import { forwardDataPromise, midfieldDataPromise, defenseGkDataPromise } from '.
 import { MongoClient, Db } from 'mongodb'; // Import Db type
 import { PlayerStats } from './data';
 import dotenv from "dotenv";
+import e from 'express';
 
 dotenv.config();
 
@@ -130,3 +131,6 @@ function calculateGameweekData(existingStat: PlayerStats, newStat: PlayerStats):
 }
 
 run().catch(console.error);
+
+export { calculateGameweekData }
+

@@ -1,5 +1,18 @@
 import fs from 'fs';
 import csv from 'csv-parser';
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const uri = process.env.MONGODB_URI as string;
+const client = new MongoClient(uri);
+
+// Parse the gameweek from env
+const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10) || 1;
+
+// We'll store data in `PlayerValue{gameweek}`, e.g. "PlayerValue1"
+const DB_NAME = 'FantasyBotola';
 
 interface RawPlayer {
   name: string;
@@ -28,7 +41,6 @@ async function processPlayerValues(filePath: string): Promise<RawPlayer[]> {
             name: row['Player Name'].trim(),
             marketValue: convertMarketValue(row['Market Value']),
             club: row.Club.trim(),
-            // read the position column (GK, DEF, MID, FWD)
             position: row.Position.trim() as 'GK' | 'DEF' | 'MID' | 'FWD'
           });
         } catch (error) {
@@ -51,11 +63,10 @@ function convertMarketValue(valueStr: string): number {
   }
   const value = parseFloat(match[1]);
   const multiplier = match[2];
-  return multiplier === 'k' ? value / 1000 : value; // 'K' => thousands, 'M' => millions
+  return multiplier === 'k' ? value / 1000 : value; // 'k' => thousands, 'm' => millions
 }
 
 // 3) Define piecewise breakpoints for base price (regardless of position)
-//    We'll linearly interpolate between them based on percentile.
 const PRICE_BREAKPOINTS = [
   { pct: 0.0, price: 12.5 }, // top player(s)
   { pct: 0.01, price: 10.0 }, // top 1%
@@ -77,38 +88,36 @@ function getFantasyPriceByPercentile(pct: number): number {
       return Math.round(interpolated * 2) / 2;
     }
   }
-  // fallback, if out of range for some reason
+  // Fallback if out of range
   return 4.0;
 }
 
 // 4) Position multipliers or adjustments
 //    Example: GK and DEF are cheaper, MID is baseline, FWD is more expensive.
-//    Tweak these factors or define more advanced logic as needed.
 const POSITION_MULTIPLIERS: Record<RawPlayer['position'], number> = {
-  GK: 0.75,
-  DEF: 0.85,
+  GK: 0.6,
+  DEF: 0.8,
   MID: 1.0,
-  FWD: 1.2,
+  FWD: 1.2
 };
 
 function applyPositionAdjustment(basePrice: number, position: RawPlayer['position']): number {
-  const multiplier = POSITION_MULTIPLIERS[position] || 1.0;
-  // Then round again after multiplier
+  const multiplier = POSITION_MULTIPLIERS[position] ?? 1.0;
+  // Round after multiplier
   const adjusted = basePrice * multiplier;
   return Math.round(adjusted * 2) / 2;
 }
 
 // 5) Sort, compute percentiles, map to fantasy prices, adjust by position.
 async function generateFantasyPrices(filePath: string): Promise<PricedPlayer[]> {
-  // read raw players
   const players = await processPlayerValues(filePath);
 
-  // sort descending by real market value
+  // Sort descending by real market value
   players.sort((a, b) => b.marketValue - a.marketValue);
 
   const total = players.length;
 
-  return players.map((player, index) => {
+  const pricedPlayers = players.map((player, index) => {
     // percentile (0 at top, 1 at bottom)
     const percentile = index / (total - 1);
 
@@ -120,12 +129,39 @@ async function generateFantasyPrices(filePath: string): Promise<PricedPlayer[]> 
 
     return { ...player, fantasyPrice };
   });
+
+  return pricedPlayers;
+}
+
+// 6) Push the results to MongoDB
+async function storePricesInMongo(players: PricedPlayer[]): Promise<void> {
+  // Connect to Mongo
+  await client.connect();
+  const db = client.db(DB_NAME);
+
+  // Use a collection named PlayerValue${CURRENT_GAMEWEEK}, for example: PlayerValue1
+  const collectionName = `PlayerValue${CURRENT_GAMEWEEK}`;
+  const collection = db.collection<PricedPlayer>(collectionName);
+
+  // You could insert new docs or do an upsert if you want to avoid duplicates:
+  // For simplicity, let's just insert them all
+  await collection.insertMany(players);
+
+  console.log(`Inserted ${players.length} documents into ${collectionName}`);
+
+  // Close connection if you're done
+  await client.close();
 }
 
 // MAIN usage example
-generateFantasyPrices('./data/botola mv.csv')
-  .then((players) => {
-    // see the first 100 players
-    console.table(players.slice(0, 100));
-  })
-  .catch(console.error);
+(async function main() {
+  try {
+    const pricedPlayers = await generateFantasyPrices('./data/botola mv.csv');
+    console.table(pricedPlayers.slice(0, 100));
+
+    // Now store the results in MongoDB
+    await storePricesInMongo(pricedPlayers);
+  } catch (error) {
+    console.error(error);
+  }
+})();
