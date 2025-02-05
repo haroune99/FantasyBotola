@@ -8,8 +8,8 @@ const client = new MongoClient(uri);
 const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10);
 
 const DB_NAME = 'FantasyBotola';
-const PLAYER_COLLECTION_NAME = `PlayerValue${CURRENT_GAMEWEEK}`; // e.g. PlayerValue1
-const USER_SQUAD_COLLECTION = 'UserSquads';
+const PLAYER_COLLECTION_NAME = `PlayerValue${CURRENT_GAMEWEEK}`;
+const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`;
 
 // The shape of a Player in the DB
 interface PlayerDoc {
@@ -83,36 +83,37 @@ function validateSquad(players: PlayerDoc[]): void {
 }
 
 /**
- * Create a user’s squad by player NAMES.
+ * Create a user’s squad by player NAMES and CLUBS.
  * This function:
- * 1) Fetches players from Mongo by name
+ * 1) Fetches players from Mongo by name and club
  * 2) Ensures exactly 15 are found
  * 3) Validates constraints
  * 4) Inserts into `UserSquads` if valid
  */
-export async function createUserSquad(userId: string, playerNames: string[]): Promise<UserSquadDoc> {
-  if (playerNames.length !== 15) {
-    throw new Error('Must provide exactly 15 player names.');
+async function createUserSquad(userId: string, playerSelections: { name: string; club: string }[]): Promise<UserSquadDoc> {
+  if (playerSelections.length !== 15) {
+    throw new Error('Must provide exactly 15 player selections (name and club).');
   }
 
   await client.connect();
   const db = client.db(DB_NAME);
 
   try {
-    // 1) Load the selected players by name
-    // If multiple players have the same name, you might need a more robust approach,
-    // e.g. also matching on position or club, or storing a unique slug in the DB.
+    // 1) Load the selected players by name and club
     const collection = db.collection<PlayerDoc>(PLAYER_COLLECTION_NAME);
 
+    // Construct a query to fetch players by name and club
+    const query = playerSelections.map(({ name, club }) => ({ name, club }));
+
     const players = await collection
-      .find({ name: { $in: playerNames } })
+      .find({ $or: query })
       .toArray();
 
     // 2) Check if we got exactly 15
     if (players.length !== 15) {
-      const foundNames = players.map(p => p.name);
+      const foundNames = players.map(p => `${p.name} (${p.club})`);
       throw new Error(
-        `Could not find all 15 players by name. Found these: ${foundNames.join(', ')}`
+        `Could not find all 15 players by name and club. Found these: ${foundNames.join(', ')}`
       );
     }
 
@@ -143,26 +144,26 @@ export async function createUserSquad(userId: string, playerNames: string[]): Pr
 
 // Example usage if you run `ts-node createUserSquad.ts` directly
 if (require.main === module) {
-  // Suppose the user picks 15 player names:
-  const exampleNames = [
-    'Mourad Abdelwadie', // GK
-    'Oussama Errahmany', // GK
-    'Yasser Machouat',
-    'Jad Assouab',
-    'Mehdi Khallati',
-    'Mehdi Attouchi',
-    'Oussama Benchchaoui',
-    'Omar Arjoune',
-    'Abderrahmane Qassaq',
-    'Zakaria Ami',
-    'Badreddine Octobre',
-    'Hamza El Belghyty',
-    'Zakaria Habti',
-    'Anas Samoudi',
-    'Abdoul Draman Ouedraogo',
+  // Suppose the user picks 15 player selections:
+  const exampleSelections = [
+    { name: 'Mourad Abdelwadie', club: 'SC Chabab Mohammédia' },
+    { name: 'Oussama Errahmany', club: 'SC Chabab Mohammédia' },
+    { name: 'Yasser Machouat', club: 'SC Chabab Mohammédia' },
+    { name: 'Jad Assouab', club: 'Jeunesse Sportive Soualem' },
+    { name: 'Mehdi Khallati', club: 'Jeunesse Sportive Soualem' },
+    { name: 'Mehdi Attouchi', club: 'Jeunesse Sportive Soualem' },
+    { name: 'Oussama Benchchaoui', club: 'Difaâ Hassani El-Jadidi' },
+    { name: 'Omar Arjoune', club: 'Difaâ Hassani El-Jadidi' },
+    { name: 'Adil El Hassnaoui', club: 'Difaâ Hassani El-Jadidi' },
+    { name: 'Zakaria Ami', club: "Hassania d'Agadir" },
+    { name: 'Badreddine Octobre', club: "Hassania d'Agadir" },
+    { name: 'Hamza El Belghyty', club: "Hassania d'Agadir" },
+    { name: 'Zakaria Habti', club: 'Olympic Safi' },
+    { name: 'Anas Samoudi', club: 'Olympic Safi' },
+    { name: 'Abdoul Draman Ouedraogo', club: 'Olympic Safi' },
   ];
 
-  createUserSquad('HarouneTest', exampleNames)
+  createUserSquad('HarouneTest', exampleSelections)
     .then((squad) => {
       console.log('Squad created successfully:', squad);
     })
@@ -170,3 +171,6 @@ if (require.main === module) {
       console.error('Error creating squad:', err.message);
     });
 }
+
+// Export to call it from other modules
+export { createUserSquad };
