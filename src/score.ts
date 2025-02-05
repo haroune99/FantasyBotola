@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import FuzzySet from 'fuzzyset.js';
+import { ObjectId } from 'mongodb';
 
 dotenv.config();
 
@@ -25,7 +26,7 @@ const scoringRules = {
 };
 
 interface StartingTeamDoc {
-    _id: string;
+    _id: ObjectId;
     userId: string;
     gameweek: number;
     totalPrice: number;
@@ -99,10 +100,12 @@ async function scorePlayers(startingTeams: StartingTeamDoc[]): Promise<void> {
                 let score = 0;
 
                 // Minutes played
-                if (stats.minutesPlayed >= 60) {
-                    score += scoringRules.minutesPlayed.moreThan60;
-                } else {
-                    score += scoringRules.minutesPlayed.upTo60;
+                if (stats.minutesPlayed > 0) {
+                    if (stats.minutesPlayed >= 60) {
+                        score += scoringRules.minutesPlayed.moreThan60;
+                    } else {
+                        score += scoringRules.minutesPlayed.upTo60;
+                    }
                 }
 
                 // Goals
@@ -146,13 +149,21 @@ async function scorePlayers(startingTeams: StartingTeamDoc[]): Promise<void> {
                 return { player: players[index].name, score };
             });
 
+            // Handle players with no stats found
+            players.forEach((player, index) => {
+                const foundStats = playerStats[index];
+                if (!foundStats) {
+                    playerScores.push({ player: player.name, score: 0 });
+                }
+            });
+
             // Log player scores for debugging
             console.log('Player Scores:', playerScores);
 
             // Update scores in the database
             const startingTeamCol = db.collection<StartingTeamDoc>(STARTING_TEAM_COLLECTION);
             const updateResult = await startingTeamCol.updateOne(
-                { _id: startingTeam._id },
+                { _id: new ObjectId(startingTeam._id) },  // Convert to ObjectId
                 { $set: { playerScores } }
             );
 
@@ -179,8 +190,8 @@ if (require.main === module) {
     // Example startingTeam data
     const exampleStartingTeams: StartingTeamDoc[] = [
         {
-            _id: '67a36ef01400733632c9f95a',
-            userId: 'HarouneTest',
+            _id: new ObjectId("67a36ef01400733632c9f95a"),
+            userId: "HarouneTest",
             gameweek: 19,
             totalPrice: 52.5,
             startingEleven: [
