@@ -1,4 +1,4 @@
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient, ObjectId, WithId } from 'mongodb';
 import dotenv from 'dotenv';
 import { UserSquadDoc, PlayerDoc, validateSquad } from './team';
 
@@ -20,51 +20,72 @@ interface TransferRequest {
 }
 
 export interface UserTransferStateDoc {
-    userId: string;
-    availableTransfers: number;
-    maxSavedTransfers: number;
-    lastGameweekUpdated: number;
-  }
+  userId: string;
+  availableTransfers: number;
+  maxSavedTransfers: number;
+  lastGameweekUpdated: number;
+}
 
 async function makeTransfer(request: TransferRequest): Promise<void> {
-  await client.connect();
-  const session = client.startSession();
-
-  try {
-    await session.withTransaction(async () => {
-      const db = client.db(DB_NAME);
-
-      // 1. Check Transfer Availability
-      const transferStateCol = db.collection<UserTransferStateDoc>(USER_TRANSFER_STATE_COLLECTION);
-      const transferState = await transferStateCol.findOne(
-        { userId: request.userId },
-        { session }
-      );
-
-      let available = transferState?.availableTransfers ?? 1;
-      const maxSaved = transferState?.maxSavedTransfers ?? 2;
-      const lastUpdated = transferState?.lastGameweekUpdated ?? CURRENT_GAMEWEEK;
-
-      // Update transfers if new gameweek
-      if (lastUpdated < CURRENT_GAMEWEEK) {
-        available = Math.min(available + 1, maxSaved);
-        await transferStateCol.updateOne(
+    await client.connect();
+    const session = client.startSession();
+  
+    try {
+      await session.withTransaction(async () => {
+        const db = client.db(DB_NAME);
+  
+        // 1. Get or create transfer state with proper typing
+        const transferStateCol = db.collection<UserTransferStateDoc>(USER_TRANSFER_STATE_COLLECTION);
+        const transferResult = await transferStateCol.findOneAndUpdate(
           { userId: request.userId },
-          { $set: { availableTransfers: available, lastGameweekUpdated: CURRENT_GAMEWEEK } },
-          { upsert: true, session }
+          {
+            $setOnInsert: {
+              availableTransfers: 1,
+              maxSavedTransfers: 2,
+              lastGameweekUpdated: CURRENT_GAMEWEEK
+            }
+          },
+          {
+            upsert: true,
+            returnDocument: 'after',
+            session
+          }
         );
+  
+        // Handle null result case
+        if (!transferResult) {
+          throw new Error('Failed to initialize transfer state');
+        }
+  
+        // 2. Type guard for WithId<Document>
+        const transferState = transferResult as WithId<UserTransferStateDoc>;
+        
+        // 3. Validate available transfers
+        if (transferState.availableTransfers < 1) {
+          throw new Error('No transfers available');
+        }
+
+      // 3. Get current squad for NEXT gameweek
+      const squadCol = db.collection<UserSquadDoc>(`UserSquad${CURRENT_GAMEWEEK + 1}`);
+      let currentSquad = await squadCol.findOne({ userId: request.userId }, { session });
+
+      // 4. Clone squad if no next GW squad exists
+      if (!currentSquad) {
+        const currentGwSquad = await db.collection<UserSquadDoc>(USER_SQUAD_COLLECTION)
+          .findOne({ userId: request.userId }, { session });
+        
+        if (!currentGwSquad) throw new Error('Current squad not found');
+        
+        currentSquad = {
+          ...currentGwSquad,
+          _id: new ObjectId(),
+          gameweek: CURRENT_GAMEWEEK + 1,
+          createdAt: new Date()
+        };
+        await squadCol.insertOne(currentSquad, { session });
       }
 
-      if (available < 1) throw new Error('No transfers available');
-
-      // 2. Validate Players
-      const squadCol = db.collection<UserSquadDoc>(USER_SQUAD_COLLECTION);
-      const currentSquad = await squadCol.findOne(
-        { userId: request.userId, gameweek: CURRENT_GAMEWEEK },
-        { session }
-      );
-      if (!currentSquad) throw new Error('Current squad not found');
-
+      // 5. Validate transfer parameters
       const playerOut = currentSquad.players.find(
         p => p.name === request.playerOut.name && p.club === request.playerOut.club
       );
@@ -77,11 +98,11 @@ async function makeTransfer(request: TransferRequest): Promise<void> {
       );
       if (!playerIn) throw new Error('Player not found');
 
+      // 6. Validate transfer constraints
       if (playerOut.position !== playerIn.position) {
         throw new Error('Position mismatch');
       }
 
-      // 3. Budget and Club Checks
       const newTotal = currentSquad.totalPrice - playerOut.fantasyPrice + playerIn.fantasyPrice;
       if (newTotal > 100) throw new Error('Budget exceeded');
 
@@ -90,28 +111,23 @@ async function makeTransfer(request: TransferRequest): Promise<void> {
         throw new Error('Club limit exceeded');
       }
 
-      // 4. Create New Squad
+      // 7. Apply transfer and update state
       const newPlayers = currentSquad.players.map(p => 
         p === playerOut ? playerIn : p
       );
-      validateSquad(newPlayers); // Reuse existing validation
+      validateSquad(newPlayers);
 
-      // 5. Update Database
       await transferStateCol.updateOne(
-        { userId: request.userId },
+        { _id: transferState._id },
         { $inc: { availableTransfers: -1 } },
         { session }
       );
 
-      const newSquad: UserSquadDoc = {
-        ...currentSquad,
-        gameweek: CURRENT_GAMEWEEK + 1,
-        totalPrice: newTotal,
-        players: newPlayers,
-        createdAt: new Date()
-      };
-
-      await squadCol.insertOne(newSquad, { session });
+      await squadCol.updateOne(
+        { _id: currentSquad._id },
+        { $set: { players: newPlayers, totalPrice: newTotal } },
+        { session }
+      );
     });
   } finally {
     await session.endSession();
@@ -119,7 +135,7 @@ async function makeTransfer(request: TransferRequest): Promise<void> {
   }
 }
 
-// Example usage
+// Export for testing
 if (require.main === module) {
   makeTransfer({
     userId: 'HarouneTest',
