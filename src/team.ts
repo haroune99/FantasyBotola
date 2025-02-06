@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,7 +12,7 @@ const PLAYER_COLLECTION_NAME = `PlayerValue${CURRENT_GAMEWEEK}`;
 const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`;
 
 // The shape of a Player in the DB
-interface PlayerDoc {
+export interface PlayerDoc {
   name: string;
   marketValue: number;
   club: string;
@@ -21,7 +21,8 @@ interface PlayerDoc {
 }
 
 // The shape of the user’s squad document we’ll store
-interface UserSquadDoc {
+export interface UserSquadDoc {
+  _id?: ObjectId;
   userId: string;      
   gameweek: number;
   totalPrice: number;  
@@ -42,20 +43,17 @@ function validateSquad(players: PlayerDoc[]): void {
   let totalPrice = 0;
 
   for (const p of players) {
-    // Count position
     if (!(p.position in positionCounts)) {
       throw new Error(`Invalid position: ${p.position}`);
     }
     positionCounts[p.position]++;
 
-    // Count club
     if (!clubCounts[p.club]) clubCounts[p.club] = 0;
     clubCounts[p.club]++;
 
     totalPrice += p.fantasyPrice;
   }
 
-  // Check exact position requirements
   if (positionCounts.GK !== 2) {
     throw new Error(`Need exactly 2 GK. Found ${positionCounts.GK}`);
   }
@@ -69,27 +67,17 @@ function validateSquad(players: PlayerDoc[]): void {
     throw new Error(`Need exactly 3 FWD. Found ${positionCounts.FWD}`);
   }
 
-  // Check max 3 from the same club
   for (const club in clubCounts) {
     if (clubCounts[club] > 3) {
       throw new Error(`Cannot have more than 3 players from club ${club}`);
     }
   }
 
-  // Check budget
   if (totalPrice > 100) {
     throw new Error(`Squad price exceeds 100M. Found ${totalPrice}M`);
   }
 }
 
-/**
- * Create a user’s squad by player NAMES and CLUBS.
- * This function:
- * 1) Fetches players from Mongo by name and club
- * 2) Ensures exactly 15 are found
- * 3) Validates constraints
- * 4) Inserts into `UserSquads` if valid
- */
 async function createUserSquad(userId: string, playerSelections: { name: string; club: string }[]): Promise<UserSquadDoc> {
   if (playerSelections.length !== 15) {
     throw new Error('Must provide exactly 15 player selections (name and club).');
@@ -99,17 +87,12 @@ async function createUserSquad(userId: string, playerSelections: { name: string;
   const db = client.db(DB_NAME);
 
   try {
-    // 1) Load the selected players by name and club
     const collection = db.collection<PlayerDoc>(PLAYER_COLLECTION_NAME);
-
-    // Construct a query to fetch players by name and club
     const query = playerSelections.map(({ name, club }) => ({ name, club }));
-
     const players = await collection
       .find({ $or: query })
       .toArray();
 
-    // 2) Check if we got exactly 15
     if (players.length !== 15) {
       const foundNames = players.map(p => `${p.name} (${p.club})`);
       throw new Error(
@@ -117,7 +100,6 @@ async function createUserSquad(userId: string, playerSelections: { name: string;
       );
     }
 
-    // 3) Validate
     validateSquad(players);
 
     const totalPrice = players.reduce((sum, p) => sum + p.fantasyPrice, 0);
@@ -130,7 +112,6 @@ async function createUserSquad(userId: string, playerSelections: { name: string;
       createdAt: new Date()
     };
 
-    // 4) Insert
     const squadsCol = db.collection<UserSquadDoc>(USER_SQUAD_COLLECTION);
     await squadsCol.insertOne(userSquad);
 
@@ -144,7 +125,6 @@ async function createUserSquad(userId: string, playerSelections: { name: string;
 
 // Example usage if you run `ts-node createUserSquad.ts` directly
 if (require.main === module) {
-  // Suppose the user picks 15 player selections:
   const exampleSelections = [
     { name: 'Mourad Abdelwadie', club: 'SC Chabab Mohammédia' },
     { name: 'Oussama Errahmany', club: 'SC Chabab Mohammédia' },
@@ -172,5 +152,5 @@ if (require.main === module) {
     });
 }
 
-// Export to call it from other modules
 export { createUserSquad };
+export { validateSquad };

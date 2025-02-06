@@ -219,3 +219,6 @@ if (require.main === module) {
             console.error('Error scoring players:', err);
         });
 }
+
+// Export to call it from other modules
+export { scorePlayers };
