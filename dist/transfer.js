@@ -29,26 +29,43 @@ function makeTransfer(request) {
         const session = client.startSession();
         try {
             yield session.withTransaction(() => __awaiter(this, void 0, void 0, function* () {
-                var _a, _b, _c;
                 const db = client.db(DB_NAME);
-                // 1. Check Transfer Availability
+                // 1. Get or create transfer state with proper typing
                 const transferStateCol = db.collection(USER_TRANSFER_STATE_COLLECTION);
-                const transferState = yield transferStateCol.findOne({ userId: request.userId }, { session });
-                let available = (_a = transferState === null || transferState === void 0 ? void 0 : transferState.availableTransfers) !== null && _a !== void 0 ? _a : 1;
-                const maxSaved = (_b = transferState === null || transferState === void 0 ? void 0 : transferState.maxSavedTransfers) !== null && _b !== void 0 ? _b : 2;
-                const lastUpdated = (_c = transferState === null || transferState === void 0 ? void 0 : transferState.lastGameweekUpdated) !== null && _c !== void 0 ? _c : CURRENT_GAMEWEEK;
-                // Update transfers if new gameweek
-                if (lastUpdated < CURRENT_GAMEWEEK) {
-                    available = Math.min(available + 1, maxSaved);
-                    yield transferStateCol.updateOne({ userId: request.userId }, { $set: { availableTransfers: available, lastGameweekUpdated: CURRENT_GAMEWEEK } }, { upsert: true, session });
+                const transferResult = yield transferStateCol.findOneAndUpdate({ userId: request.userId }, {
+                    $setOnInsert: {
+                        availableTransfers: 1,
+                        maxSavedTransfers: 2,
+                        lastGameweekUpdated: CURRENT_GAMEWEEK
+                    }
+                }, {
+                    upsert: true,
+                    returnDocument: 'after',
+                    session
+                });
+                // Handle null result case
+                if (!transferResult) {
+                    throw new Error('Failed to initialize transfer state');
                 }
-                if (available < 1)
+                // 2. Type guard for WithId<Document>
+                const transferState = transferResult;
+                // 3. Validate available transfers
+                if (transferState.availableTransfers < 1) {
                     throw new Error('No transfers available');
-                // 2. Validate Players
-                const squadCol = db.collection(USER_SQUAD_COLLECTION);
-                const currentSquad = yield squadCol.findOne({ userId: request.userId, gameweek: CURRENT_GAMEWEEK }, { session });
-                if (!currentSquad)
-                    throw new Error('Current squad not found');
+                }
+                // 3. Get current squad for NEXT gameweek
+                const squadCol = db.collection(`UserSquad${CURRENT_GAMEWEEK + 1}`);
+                let currentSquad = yield squadCol.findOne({ userId: request.userId }, { session });
+                // 4. Clone squad if no next GW squad exists
+                if (!currentSquad) {
+                    const currentGwSquad = yield db.collection(USER_SQUAD_COLLECTION)
+                        .findOne({ userId: request.userId }, { session });
+                    if (!currentGwSquad)
+                        throw new Error('Current squad not found');
+                    currentSquad = Object.assign(Object.assign({}, currentGwSquad), { _id: new mongodb_1.ObjectId(), gameweek: CURRENT_GAMEWEEK + 1, createdAt: new Date() });
+                    yield squadCol.insertOne(currentSquad, { session });
+                }
+                // 5. Validate transfer parameters
                 const playerOut = currentSquad.players.find(p => p.name === request.playerOut.name && p.club === request.playerOut.club);
                 if (!playerOut)
                     throw new Error('Player not in squad');
@@ -56,10 +73,10 @@ function makeTransfer(request) {
                 const playerIn = yield playersCol.findOne({ name: request.playerIn.name, club: request.playerIn.club }, { session });
                 if (!playerIn)
                     throw new Error('Player not found');
+                // 6. Validate transfer constraints
                 if (playerOut.position !== playerIn.position) {
                     throw new Error('Position mismatch');
                 }
-                // 3. Budget and Club Checks
                 const newTotal = currentSquad.totalPrice - playerOut.fantasyPrice + playerIn.fantasyPrice;
                 if (newTotal > 100)
                     throw new Error('Budget exceeded');
@@ -67,13 +84,11 @@ function makeTransfer(request) {
                 if (currentClubCount - (playerOut.club === playerIn.club ? 1 : 0) >= 3) {
                     throw new Error('Club limit exceeded');
                 }
-                // 4. Create New Squad
+                // 7. Apply transfer and update state
                 const newPlayers = currentSquad.players.map(p => p === playerOut ? playerIn : p);
-                (0, team_1.validateSquad)(newPlayers); // Reuse existing validation
-                // 5. Update Database
-                yield transferStateCol.updateOne({ userId: request.userId }, { $inc: { availableTransfers: -1 } }, { session });
-                const newSquad = Object.assign(Object.assign({}, currentSquad), { _id: new mongodb_1.ObjectId(), gameweek: CURRENT_GAMEWEEK + 1, totalPrice: newTotal, players: newPlayers, createdAt: new Date() });
-                yield squadCol.insertOne(newSquad, { session });
+                (0, team_1.validateSquad)(newPlayers);
+                yield transferStateCol.updateOne({ _id: transferState._id }, { $inc: { availableTransfers: -1 } }, { session });
+                yield squadCol.updateOne({ _id: currentSquad._id }, { $set: { players: newPlayers, totalPrice: newTotal } }, { session });
             }));
         }
         finally {
@@ -82,11 +97,11 @@ function makeTransfer(request) {
         }
     });
 }
-// Example usage
+// Export for testing
 if (require.main === module) {
     makeTransfer({
         userId: 'HarouneTest',
         playerOut: { name: 'Omar Arjoune', club: 'Difaâ Hassani El-Jadidi' },
-        playerIn: { name: 'New Player', club: 'Difaâ Hassani El-Jadidi' }
+        playerIn: { name: 'Amine Zouhzouh', club: 'AS FAR Rabat' }
     }).catch(console.error);
 }

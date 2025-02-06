@@ -20,65 +20,53 @@ const uri = process.env.MONGODB_URI;
 const client = new mongodb_1.MongoClient(uri);
 const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK, 10);
 const DB_NAME = 'FantasyBotola';
-const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`;
-const STARTING_ELEVEN = `StartingTeam${CURRENT_GAMEWEEK}`;
-/**
- * Create a user’s starting eleven from their squad.
- * This function:
- * 1) Fetches the user's squad from MongoDB
- * 2) Validates the starting eleven meets requirements
- * 3) Inserts into `StartingEleven` collection if valid
- */
+const NEXT_GAMEWEEK = CURRENT_GAMEWEEK + 1;
+const USER_SQUAD_COLLECTION = `UserSquad${NEXT_GAMEWEEK}`;
+const STARTING_ELEVEN = `StartingTeam${NEXT_GAMEWEEK}`;
 function createStartingEleven(userId, playerNames) {
     return __awaiter(this, void 0, void 0, function* () {
         yield client.connect();
         const db = client.db(DB_NAME);
         try {
-            // 1) Fetch the user's squad from MongoDB
+            // 1) Fetch the user's NEXT gameweek squad
             const squadsCol = db.collection(USER_SQUAD_COLLECTION);
             const userSquad = yield squadsCol.findOne({ userId });
             if (!userSquad) {
-                throw new Error(`User squad not found for userId ${userId}`);
+                throw new Error(`User squad for GW${NEXT_GAMEWEEK} not found for userId ${userId}`);
             }
-            const { players } = userSquad;
-            // 2) Validate playerNames are in the user's squad
-            const selectedPlayers = players.filter(p => playerNames.includes(p.name));
-            if (selectedPlayers.length !== playerNames.length) {
-                const invalidNames = playerNames.filter(name => !players.some(p => p.name === name));
-                throw new Error(`Invalid player names: ${invalidNames.join(', ')}`);
+            // 2) Validate player names against the TRANSFERRED squad
+            const selectedPlayers = userSquad.players.filter(p => playerNames.includes(p.name));
+            if (selectedPlayers.length !== 11) {
+                const invalidNames = playerNames.filter(name => !userSquad.players.some(p => p.name === name));
+                throw new Error(`Invalid selection: ${invalidNames.join(', ')} not in GW${NEXT_GAMEWEEK} squad`);
             }
-            // 3) Select players for the starting eleven
-            const startingElevenPlayers = selectedPlayers;
-            if (startingElevenPlayers.length !== 11) {
-                throw new Error('Must select exactly 11 players for the starting eleven.');
-            }
-            // 4) Validate the starting eleven meets position requirements
+            // 3) Validate position requirements
             const positionCounts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
-            for (const player of startingElevenPlayers) {
-                positionCounts[player.position]++;
-            }
-            if (positionCounts.GK < 1 ||
-                positionCounts.DEF < 3 ||
-                positionCounts.MID < 2 ||
-                positionCounts.FWD < 1) {
-                throw new Error('Starting eleven must have at least 1 GK, 3 DEF, 2 MID, and 1 FWD.');
-            }
-            const totalPrice = startingElevenPlayers.reduce((sum, p) => sum + p.fantasyPrice, 0);
+            selectedPlayers.forEach(p => positionCounts[p.position]++);
+            if (positionCounts.GK !== 1)
+                throw new Error('Must select exactly 1 GK');
+            if (positionCounts.DEF < 3)
+                throw new Error('Minimum 3 DEF required');
+            if (positionCounts.MID < 2)
+                throw new Error('Minimum 2 MID required');
+            if (positionCounts.FWD < 1)
+                throw new Error('Minimum 1 FWD required');
+            // 4) Create starting eleven document
             const startingElevenDoc = {
                 userId,
-                gameweek: CURRENT_GAMEWEEK,
-                totalPrice,
-                startingEleven: startingElevenPlayers.map(p => ({
+                gameweek: NEXT_GAMEWEEK,
+                totalPrice: selectedPlayers.reduce((sum, p) => sum + p.fantasyPrice, 0),
+                startingEleven: selectedPlayers.map(p => ({
                     name: p.name,
                     club: p.club,
                     position: p.position,
                 })),
                 createdAt: new Date()
             };
-            // 5) Insert into StartingEleven collection
+            // 5) Store in NEXT gameweek's starting eleven collection
             const startingElevenCol = db.collection(STARTING_ELEVEN);
             yield startingElevenCol.insertOne(startingElevenDoc);
-            console.log(`Starting eleven created for userId=${userId}, totalPrice=${totalPrice}`);
+            console.log(`GW${NEXT_GAMEWEEK} starting eleven created for ${userId}`);
             return startingElevenDoc;
         }
         finally {
@@ -86,9 +74,9 @@ function createStartingEleven(userId, playerNames) {
         }
     });
 }
-// Example usage if you run `ts-node createStartingEleven.ts` directly
+// Updated example usage for GW20
 if (require.main === module) {
-    const examplePlayerNames = [
+    const gw20Players = [
         'Mourad Abdelwadie',
         'Mehdi Attouchi',
         'Hamza El Belghyty',
@@ -97,15 +85,11 @@ if (require.main === module) {
         'Badreddine Octobre',
         'Adil El Hassnaoui',
         'Oussama Benchchaoui',
-        'Omar Arjoune',
+        'Amine Zouhzouh',
         'Anas Samoudi',
         'Abdoul Draman Ouedraogo'
     ];
-    createStartingEleven('HarouneTest', examplePlayerNames)
-        .then((startingEleven) => {
-        console.log('Starting eleven created successfully:', startingEleven);
-    })
-        .catch((err) => {
-        console.error('Error creating starting eleven:', err.message);
-    });
+    createStartingEleven('HarouneTest', gw20Players)
+        .then(() => console.log('GW20 starting team set!'))
+        .catch(console.error);
 }
