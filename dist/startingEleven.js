@@ -87,7 +87,7 @@ if (require.main === module) {
         'Oussama Benchchaoui',
         'Amine Zouhzouh',
         'Anas Samoudi',
-        'Abdoul Draman Ouedraogo'
+        'Ayoub Lakhal'
     ];
     createStartingEleven('HarouneTest', gw20Players)
         .then(() => console.log('GW20 starting team set!'))

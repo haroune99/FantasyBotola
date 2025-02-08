@@ -123,7 +123,7 @@ async function createUserSquad(userId: string, playerSelections: { name: string;
   }
 }
 
-// Example usage if you run `ts-node createUserSquad.ts` directly
+// Example usage  
 if (require.main === module) {
   const exampleSelections = [
     { name: 'Mourad Abdelwadie', club: 'SC Chabab Mohammédia' },
@@ -140,7 +140,7 @@ if (require.main === module) {
     { name: 'Hamza El Belghyty', club: "Hassania d'Agadir" },
     { name: 'Zakaria Habti', club: 'Olympic Safi' },
     { name: 'Anas Samoudi', club: 'Olympic Safi' },
-    { name: 'Abdoul Draman Ouedraogo', club: 'Olympic Safi' },
+    { name: 'Ayoub Lakhal', club: 'Moghreb Atlético Tetuán' },
   ];
 
   createUserSquad('HarouneTest', exampleSelections)

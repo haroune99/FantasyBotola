@@ -10,7 +10,7 @@ const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10);
 
 const DB_NAME = 'FantasyBotola';
 const PLAYER_COLLECTION = `PlayerValue${CURRENT_GAMEWEEK}`;
-const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`;
+const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK-1}`;
 const USER_TRANSFER_STATE_COLLECTION = 'UserTransferState';
 
 interface TransferRequest {
@@ -139,7 +139,7 @@ async function makeTransfer(request: TransferRequest): Promise<void> {
 if (require.main === module) {
   makeTransfer({
     userId: 'HarouneTest',
-    playerOut: { name: 'Omar Arjoune', club: 'Difaâ Hassani El-Jadidi' },
-    playerIn: { name: 'Amine Zouhzouh', club: 'AS FAR Rabat' }
+    playerOut: { name: 'Abdoul Draman Ouedraogo', club: 'Olympic Safi' },
+    playerIn: { name: 'Ayoub Lakhal', club: 'Moghreb Atlético Tetuán' }
   }).catch(console.error);
 }

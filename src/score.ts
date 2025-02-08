@@ -203,7 +203,7 @@ if (require.main === module) {
                 { name: 'Anas Samoudi', club: 'Olympic Safi', position: 'FWD' },
                 { name: 'Mehdi Khallati', club: 'Jeunesse Sportive Soualem', position: 'DEF' },
                 { name: 'Mehdi Attouchi', club: 'Jeunesse Sportive Soualem', position: 'DEF' },
-                { name: 'Abdoul Draman Ouedraogo', club: 'Olympic Safi', position: 'FWD' },
+                { name: 'Ayoub Lakhal', club: 'Moghreb Atlético Tetuán', position: 'FWD' },
                 { name: 'Badreddine Octobre', club: 'Hassania d\'Agadir', position: 'MID' },
                 { name: 'Hamza El Belghyty', club: 'Hassania d\'Agadir', position: 'MID' }
             ],
