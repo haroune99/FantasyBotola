@@ -6,7 +6,7 @@ import e from 'express';
 
 dotenv.config();
 
-const CURRENT_GAMEWEEK = process.env.GAMEWEEK;
+const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10);
 
 async function run() {
     const uri = process.env.MONGODB_URI as string;

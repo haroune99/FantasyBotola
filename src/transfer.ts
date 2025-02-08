@@ -9,8 +9,9 @@ const client = new MongoClient(uri);
 const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10);
 
 const DB_NAME = 'FantasyBotola';
-const PLAYER_COLLECTION = `PlayerValue${CURRENT_GAMEWEEK}`;
-const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK-1}`;
+const PLAYER_COLLECTION = `PlayerValue${CURRENT_GAMEWEEK}`; // Current GW player values
+const CURRENT_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK-1}`; // Current GW squad
+const NEXT_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`; // Same GW squad
 const USER_TRANSFER_STATE_COLLECTION = 'UserTransferState';
 
 interface TransferRequest {
@@ -65,81 +66,107 @@ async function makeTransfer(request: TransferRequest): Promise<void> {
           throw new Error('No transfers available');
         }
 
-      // 3. Get current squad for NEXT gameweek
-      const squadCol = db.collection<UserSquadDoc>(`UserSquad${CURRENT_GAMEWEEK + 1}`);
-      let currentSquad = await squadCol.findOne({ userId: request.userId }, { session });
+        // 4. Get squad for next gameweek if it exists
+        const nextSquadCol = db.collection<UserSquadDoc>(NEXT_SQUAD_COLLECTION);
+        let nextSquad = await nextSquadCol.findOne({ userId: request.userId }, { session });
 
-      // 4. Clone squad if no next GW squad exists
-      if (!currentSquad) {
-        const currentGwSquad = await db.collection<UserSquadDoc>(USER_SQUAD_COLLECTION)
-          .findOne({ userId: request.userId }, { session });
-        
-        if (!currentGwSquad) throw new Error('Current squad not found');
-        
-        currentSquad = {
-          ...currentGwSquad,
-          _id: new ObjectId(),
-          gameweek: CURRENT_GAMEWEEK + 1,
-          createdAt: new Date()
-        };
-        await squadCol.insertOne(currentSquad, { session });
-      }
+        // 5. If no next GW squad exists, clone from current GW
+        if (!nextSquad) {
+          const currentSquad = await db.collection<UserSquadDoc>(CURRENT_SQUAD_COLLECTION)
+            .findOne({ userId: request.userId }, { session });
+          
+          if (!currentSquad) {
+            throw new Error(`Current squad not found for GW${CURRENT_GAMEWEEK}`);
+          }
+          
+          nextSquad = {
+            ...currentSquad,
+            _id: new ObjectId(),
+            gameweek: CURRENT_GAMEWEEK + 1,
+            createdAt: new Date()
+          };
+          await nextSquadCol.insertOne(nextSquad, { session });
+          console.log(`Created new squad for GW${CURRENT_GAMEWEEK}`);
+        }
 
-      // 5. Validate transfer parameters
-      const playerOut = currentSquad.players.find(
-        p => p.name === request.playerOut.name && p.club === request.playerOut.club
-      );
-      if (!playerOut) throw new Error('Player not in squad');
+        // 6. Validate transfer parameters
+        const playerOut = nextSquad.players.find(
+          p => p.name === request.playerOut.name && p.club === request.playerOut.club
+        );
+        if (!playerOut) {
+          throw new Error('Player to transfer out not found in squad');
+        }
 
-      const playersCol = db.collection<PlayerDoc>(PLAYER_COLLECTION);
-      const playerIn = await playersCol.findOne(
-        { name: request.playerIn.name, club: request.playerIn.club },
-        { session }
-      );
-      if (!playerIn) throw new Error('Player not found');
+        const playersCol = db.collection<PlayerDoc>(PLAYER_COLLECTION);
+        const playerIn = await playersCol.findOne(
+          { name: request.playerIn.name, club: request.playerIn.club },
+          { session }
+        );
+        if (!playerIn) {
+          throw new Error('Player to transfer in not found in database');
+        }
 
-      // 6. Validate transfer constraints
-      if (playerOut.position !== playerIn.position) {
-        throw new Error('Position mismatch');
-      }
+        // 7. Validate transfer constraints
+        if (playerOut.position !== playerIn.position) {
+          throw new Error('Position mismatch between players');
+        }
 
-      const newTotal = currentSquad.totalPrice - playerOut.fantasyPrice + playerIn.fantasyPrice;
-      if (newTotal > 100) throw new Error('Budget exceeded');
+        const newTotal = nextSquad.totalPrice - playerOut.fantasyPrice + playerIn.fantasyPrice;
+        if (newTotal > 100) {
+          throw new Error(`Budget exceeded: ${newTotal}M > 100M`);
+        }
 
-      const currentClubCount = currentSquad.players.filter(p => p.club === playerIn.club).length;
-      if (currentClubCount - (playerOut.club === playerIn.club ? 1 : 0) >= 3) {
-        throw new Error('Club limit exceeded');
-      }
+        const currentClubCount = nextSquad.players.filter(p => p.club === playerIn.club).length;
+        if (currentClubCount - (playerOut.club === playerIn.club ? 1 : 0) >= 3) {
+          throw new Error(`Club limit exceeded for ${playerIn.club}`);
+        }
 
-      // 7. Apply transfer and update state
-      const newPlayers = currentSquad.players.map(p => 
-        p === playerOut ? playerIn : p
-      );
-      validateSquad(newPlayers);
+        // 8. Apply transfer
+        const newPlayers = nextSquad.players.map(p => 
+          p === playerOut ? playerIn : p
+        );
+        validateSquad(newPlayers);
 
-      await transferStateCol.updateOne(
-        { _id: transferState._id },
-        { $inc: { availableTransfers: -1 } },
-        { session }
-      );
+        // 9. Update transfer state and squad
+        await transferStateCol.updateOne(
+          { _id: transferState._id },
+          { $inc: { availableTransfers: -1 } },
+          { session }
+        );
 
-      await squadCol.updateOne(
-        { _id: currentSquad._id },
-        { $set: { players: newPlayers, totalPrice: newTotal } },
-        { session }
-      );
-    });
-  } finally {
-    await session.endSession();
-    await client.close();
-  }
+        await nextSquadCol.updateOne(
+          { _id: nextSquad._id },
+          { 
+            $set: { 
+              players: newPlayers, 
+              totalPrice: newTotal 
+            } 
+          },
+          { session }
+        );
+
+        console.log(`Transfer completed for GW${CURRENT_GAMEWEEK + 1}`);
+        console.log(`OUT: ${playerOut.name} (${playerOut.club})`);
+        console.log(`IN: ${playerIn.name} (${playerIn.club})`);
+        console.log(`New squad total: ${newTotal}M`);
+      });
+    } catch (error) {
+      console.error('Transfer failed:', error);
+      throw error;
+    } finally {
+      await session.endSession();
+      await client.close();
+    }
 }
 
-// Export for testing
+// Example usage for testing
 if (require.main === module) {
+  console.log(`Making transfer for GW${CURRENT_GAMEWEEK} using GW${CURRENT_GAMEWEEK-1} squad as base`);
   makeTransfer({
     userId: 'HarouneTest',
     playerOut: { name: 'Abdoul Draman Ouedraogo', club: 'Olympic Safi' },
     playerIn: { name: 'Ayoub Lakhal', club: 'Moghreb Atlético Tetuán' }
   }).catch(console.error);
 }
+
+export { makeTransfer };
