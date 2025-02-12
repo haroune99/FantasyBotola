@@ -25,7 +25,7 @@ interface UserSquadDoc {
   createdAt: Date;     
 }
 
-interface StartingElevenDoc {
+export interface StartingElevenDoc {
   userId: string;
   gameweek: number;
   totalPrice: number;

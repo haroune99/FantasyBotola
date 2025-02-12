@@ -1,10 +1,47 @@
-import { Router, RequestHandler } from 'express';
-import { createUserSquad } from '../team';
+import { Router, RequestHandler, Request } from 'express';
+import { createUserSquad, UserSquadDoc } from '../team';
+import { MongoClient } from 'mongodb';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const uri = process.env.MONGODB_URI as string;
+const client = new MongoClient(uri);
+const DB_NAME = 'FantasyBotola';
+const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10);
+const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`;
+
 
 const router = Router();
 
-router.get('/team', (req, res) => {
-    res.send('team');
+const fetchUserSquadMiddleware: RequestHandler = async (req, res, next) => {
+    const { userId } = req.params;
+
+    try {
+        await client.connect();
+        const db = client.db(DB_NAME);
+        const squadsCol = db.collection<UserSquadDoc>(USER_SQUAD_COLLECTION);
+
+        const userSquad = await squadsCol.findOne({ userId });
+
+        if (!userSquad) {
+            res.status(404).json({ error: `User squad not found for userId ${userId}` });
+            return;
+        }
+
+        req.userSquad = userSquad;
+        next();
+    } catch (error) {
+        console.error('Error fetching user squad:', error);
+        res.status(500).json({ error: 'Failed to fetch user squad' });
+    } finally {
+        await client.close();
+    }
+};
+
+// Route using the middleware to return the user's squad
+router.get('/user-squad/:userId', fetchUserSquadMiddleware, (req, res) => {
+    res.status(200).json(req.userSquad);
 });
 
 const teamHandler: RequestHandler = async (req, res) => {

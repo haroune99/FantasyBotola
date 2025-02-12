@@ -123,6 +123,32 @@ async function createUserSquad(userId: string, playerSelections: { name: string;
   }
 }
 
+async function displayUserTeam(userId: string): Promise<void> {
+  await client.connect();
+  const db = client.db(DB_NAME);
+
+  try {
+    const squadsCol = db.collection<UserSquadDoc>(USER_SQUAD_COLLECTION);
+    const userSquad = await squadsCol.findOne({ userId });
+
+    if (!userSquad) {
+      console.log(`User squad for GW${CURRENT_GAMEWEEK} not found for userId ${userId}`);
+      return;
+    }
+
+    console.log(`User Squad for ${userId} in Gameweek ${CURRENT_GAMEWEEK}:`);
+    console.log(`Total Price: ${userSquad.totalPrice}M`);
+    console.log('Players:');
+    userSquad.players.forEach(player => {
+      console.log(`- ${player.name} (${player.club}) - ${player.position}`);
+    });
+  } catch (error) {
+    console.error('Error displaying user team:', error);
+  } finally {
+    await client.close();
+  }
+}
+
 // Example usage  
 if (require.main === module) {
   const exampleSelections = [
@@ -154,3 +180,4 @@ if (require.main === module) {
 
 export { createUserSquad };
 export { validateSquad };
+export { displayUserTeam };
