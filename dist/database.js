@@ -17,7 +17,7 @@ const data_1 = require("./data");
 const mongodb_1 = require("mongodb"); // Import Db type
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const CURRENT_GAMEWEEK = process.env.GAMEWEEK;
+const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK, 10);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         const uri = process.env.MONGODB_URI;

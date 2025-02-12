@@ -160,13 +160,13 @@ function escapeRegExp(text) {
 }
 // Example usage if you run `ts-node score.ts` directly
 if (require.main === module) {
-    // Example startingTeam data
+    // Example startingTeam data - using your actual data
     const exampleStartingTeams = [
         {
-            _id: new mongodb_2.ObjectId("67a36ef01400733632c9f95a"),
+            _id: new mongodb_2.ObjectId("67a786846c0fe2bfe27f25eb"), // Your actual _id
             userId: "HarouneTest",
-            gameweek: 19,
-            totalPrice: 52.5,
+            gameweek: CURRENT_GAMEWEEK,
+            totalPrice: 53.5,
             startingEleven: [
                 { name: 'Omar Arjoune', club: 'Difaâ Hassani El-Jadidi', position: 'MID' },
                 { name: 'Jad Assouab', club: 'Jeunesse Sportive Soualem', position: 'DEF' },
@@ -177,15 +177,16 @@ if (require.main === module) {
                 { name: 'Mehdi Khallati', club: 'Jeunesse Sportive Soualem', position: 'DEF' },
                 { name: 'Mehdi Attouchi', club: 'Jeunesse Sportive Soualem', position: 'DEF' },
                 { name: 'Ayoub Lakhal', club: 'Moghreb Atlético Tetuán', position: 'FWD' },
-                { name: 'Badreddine Octobre', club: 'Hassania d\'Agadir', position: 'MID' },
-                { name: 'Hamza El Belghyty', club: 'Hassania d\'Agadir', position: 'MID' }
+                { name: 'Badreddine Octobre', club: "Hassania d'Agadir", position: 'MID' },
+                { name: 'Hamza El Belghyty', club: "Hassania d'Agadir", position: 'MID' }
             ],
-            createdAt: new Date(1738764016106)
+            createdAt: new Date(1739032196588)
         }
     ];
+    console.log(`Scoring teams for GW${CURRENT_GAMEWEEK}`);
     scorePlayers(exampleStartingTeams)
         .then(() => {
-        console.log('Scoring completed successfully.');
+        console.log(`GW${CURRENT_GAMEWEEK} scoring completed successfully.`);
     })
         .catch((err) => {
         console.error('Error scoring players:', err);
