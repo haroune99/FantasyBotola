@@ -1,5 +1,5 @@
 import { Router, RequestHandler } from 'express';
-import { createUserSquad } from '../src/team';
+import { createUserSquad } from '../team';
 
 const router = Router();
 

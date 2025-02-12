@@ -1,6 +1,8 @@
 import express, { Request, Response, RequestHandler } from 'express';
-import { createStartingEleven } from './startingEleven';
 import startingElevenRoutes from './routes/startingElevenRoutes';
+import teamRoutes from './routes/teamRoute';
+import transferRoutes from './routes/transferRoute';
+
 
 const app = express();
 const PORT = 3000;
@@ -9,6 +11,8 @@ const PORT = 3000;
 app.use(express.json());
 
 app.use(startingElevenRoutes);
+app.use(teamRoutes);
+app.use(transferRoutes);
 
 
 app.get('/', (req, res) => {
