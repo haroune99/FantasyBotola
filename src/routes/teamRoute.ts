@@ -11,6 +11,13 @@ const DB_NAME = 'FantasyBotola';
 const CURRENT_GAMEWEEK = parseInt(process.env.GAMEWEEK as string, 10);
 const USER_SQUAD_COLLECTION = `UserSquad${CURRENT_GAMEWEEK}`;
 
+declare global {
+    namespace Express {
+        interface Request {
+            userSquad?: UserSquadDoc;
+        }
+    }
+}
 
 const router = Router();
 
@@ -34,13 +41,14 @@ const fetchUserSquadMiddleware: RequestHandler = async (req, res, next) => {
     } catch (error) {
         console.error('Error fetching user squad:', error);
         res.status(500).json({ error: 'Failed to fetch user squad' });
-    } finally {
-        await client.close();
     }
 };
 
-// Route using the middleware to return the user's squad
 router.get('/user-squad/:userId', fetchUserSquadMiddleware, (req, res) => {
+    if (!req.userSquad) {
+        res.status(500).json({ error: 'User squad not found in request' });
+        return;
+    }
     res.status(200).json(req.userSquad);
 });
 
