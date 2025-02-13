@@ -13,6 +13,8 @@ const STARTING_ELEVEN = `StartingTeam${CURRENT_GAMEWEEK}`;
 
 const router = Router();
 
+const path = require('path');
+
 router.get('/starting-eleven/:userId', async (req, res) => {
     const { userId } = req.params;
 

@@ -6,6 +6,8 @@ import statsRouter from './routes/statsRoutes';
 import scoreRouter from './routes/scoreRoute';
 
 
+const path = require('path');
+
 const app = express();
 const PORT = 3000;
 
@@ -17,8 +19,10 @@ app.use(teamRoutes);
 app.use(transferRoutes);
 app.use(statsRouter);
 app.use(scoreRouter);
+
+
 app.get('/', (req, res) => {
-    res.send('Welcome to the Botola Fantas App!!!');
+    res.sendFile(path.join(__dirname, '..', 'views', 'homePage.html'));
 });
 
 app.listen(PORT, () => {
