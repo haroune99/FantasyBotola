@@ -1,0 +1,96 @@
+.navbar a {
+    margin-right: 10px; /* Adjust the value as needed */
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgb(248, 74, 74);
+    color: rgb(4, 71, 4);
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+    margin: 10px;
+    text-align: center;
+}
+
+.logo {
+    width:  50px;
+    height: 200px;
+}
+
+.navbar a {
+    text-decoration: none;
+    color: #333;
+}
+
+.Pic {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+    text-align: right;
+    background-color: transparent;
+    border: none;
+}
+
+.Login {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+    text-align: right;
+    background-color: transparent;
+    border: none;
+}
+
+.Login form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.Login input[type="text"],
+.Login input[type="password"] {
+    width: 100%;
+    max-width: 500px; /* Optional: to limit the max width */
+    margin-bottom: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.Login a {
+    display: block;
+    margin: 5px 0;
+    text-align: center;
+}
+
+.Login .options {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 500px; /* Optional: to limit the max width */
+    margin-top: 10px;
+}
+
+.Login .options a {
+    flex: 1;
+    text-align: left;
+    margin-left: 10px;
+    margin-right: 10px;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+    background-color: transparent;
+    border: none;   
+}

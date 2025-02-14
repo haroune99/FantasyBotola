@@ -21,7 +21,7 @@ interface RawPlayer {
   position: 'GK' | 'DEF' | 'MID' | 'FWD';
 }
 
-interface PricedPlayer extends RawPlayer {
+export interface PricedPlayer extends RawPlayer {
   fantasyPrice: number;
 }
 
