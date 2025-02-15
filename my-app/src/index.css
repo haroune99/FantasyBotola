@@ -1,0 +1,18 @@
+.header {
+  background-color: #39bf34;
+  padding: 10px;
+  font-family: 'Arial', sans-serif;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #e30a0a;
+  font-weight: bold;
+}
+
+.footer {
+  background-color: #9308f7;
+  color: #fff;
+  padding: 10px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
