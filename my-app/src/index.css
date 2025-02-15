@@ -1,12 +1,67 @@
+.club-logo {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  padding: 10px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.clubs-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-top: 25px;
+  margin-right: 10px;
+  color: #888383;
+}
+
 .header {
-  background-color: #39bf34;
+  background-color: #86c683;
   padding: 10px;
   font-family: 'Arial', sans-serif;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #e30a0a;
+  color: #e41010;
   font-weight: bold;
+  margin-top: 20px;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 200px;
+  margin-left: 100px;
+  margin-right: 100px;
+  gap: 3px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.buttons button {
+  background-color: rgb(38, 199, 38);
+  color: white;
+  border-radius: 3px;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.buttons button:active {
+  background-color: white;
+  color: green;
+}
+
+.login-input {
+  width: 100%; /* Full width */
+  padding: 10px; /* Padding for size */
+  margin-top: 15px; /* Space between inputs */
+  border-radius: 5px; /* Slightly rounded corners */
+  border: 1px solid #ccc; /* Light border */
+  box-sizing: border-box; /* Include padding and border in element's total width and height */
 }
 
 .footer {
@@ -15,4 +70,6 @@
   padding: 10px;
   font-family: 'Courier New', Courier, monospace;
 }
+
+
 
