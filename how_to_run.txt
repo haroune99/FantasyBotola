@@ -1,0 +1,14 @@
+Workflow for running the app:
+ 
+Let's assume the current gameweek is over, players were given their scores.
+
+We are moving to the next gameweek.
+
+1) update the gameweek in the .env file
+2) run valuePlayer.ts
+3) run incrementGameweek.ts
+4) run transfer.ts or team.ts
+5) run startingEleven.ts
+After the end of the gameweek, run the following:
+6) run database.ts
+7) run score.ts
