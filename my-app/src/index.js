@@ -12,6 +12,7 @@ function App() {
       <Centre setActiveComponent={setActiveComponent} />
       {activeComponent === 'Home' && <Home />}
       {activeComponent === 'Rules' && <Rules />}
+      {activeComponent === 'Prices' && <Prices />}
       <Footer />
     </div>
   );
@@ -45,8 +46,8 @@ function Centre({ setActiveComponent }) {
     <div className="buttons">
       <button onClick={() => setActiveComponent('Home')}>Home</button>
       <button onClick={() => setActiveComponent('Rules')}>Rules</button>
-      <button>Prices</button>
-      <button>Statistics</button>
+      <button onClick={() => setActiveComponent('Prices')}>Prices</button>
+      <button onClick={() => setActiveComponent('Statistics')}>Statistics</button>
     </div>
   </div>;
 }
@@ -56,7 +57,9 @@ function Home() {
     <div className="login">
       <input type="text" placeholder="Username" className="login-input" />
       <input type="password" placeholder="Password" className="login-input" />
-      <button>Register</button>
+      <button className="sign-in-button">
+       Sign In
+      </button>
     </div>
   </div>;
 }
@@ -70,13 +73,15 @@ function Rules() {
 
 function Prices() {
   return <div className="prices">
-    <h1>Rules</h1>
-    <p>The rules of the game are simple. You need to predict the results of the matches and score points. The more matches you predict correctly, the more points you will score.</p>
+    <h1>Prices</h1>
+    <p>Tji lewel trb7 7awya a wld l97ba</p>
     </div>
 }
 
 function Footer() {
-  return <footer className="footer">Footer</footer>;
+  return <footer className="footer">
+    <p>Copyright 2025</p>
+  </footer>;
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

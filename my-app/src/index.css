@@ -50,7 +50,8 @@
   cursor: pointer;
 }
 
-.buttons button:active {
+.buttons button:active,
+.buttons button:focus {
   background-color: white;
   color: green;
 }
@@ -58,17 +59,41 @@
 .login-input {
   width: 100%; /* Full width */
   padding: 10px; /* Padding for size */
-  margin-top: 15px; /* Space between inputs */
+  margin-top: 35px; /* Space between inputs */
   border-radius: 5px; /* Slightly rounded corners */
   border: 1px solid #ccc; /* Light border */
   box-sizing: border-box; /* Include padding and border in element's total width and height */
 }
 
+.sign-in-button {
+  background-color: rgb(38, 199, 38);
+  color: white;
+  border-radius: 3px;
+  border: none;
+  padding: 10px 20px;
+  margin-top: 20px;
+  text-align: center;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.sign-in-button:active {
+  background-color: white;
+  color: green;
+}
+
+
 .footer {
-  background-color: #9308f7;
+  background-color: #86c683;
   color: #fff;
   padding: 10px;
   font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+  margin-top: 200px;
+  font-size: 20px;
+  font-weight: bold;  
+
 }
 
 
